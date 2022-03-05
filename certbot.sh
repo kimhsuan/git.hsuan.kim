@@ -13,7 +13,7 @@ function certonly() {
       certbot/certbot certonly --webroot \
       -w /usr/local/openresty/nginx/html -d ${domain} \
       --agree-tos --register-unsafely-without-email
-  sudo cp -rf /etc/letsencrypt/archive/${domain} /data/ssl
+  sudo cp -rf /data/letsencrypt/archive/${domain} /data/ssl
 }
 
 function renew() {
@@ -22,7 +22,7 @@ function renew() {
       -v "/data/html:/usr/local/openresty/nginx/html" \
       -v "/var/log/letsencrypt:/var/log/letsencrypt" \
       certbot/certbot renew
-  sudo cp -rf /etc/letsencrypt/archive/${domain} /data/ssl
+  sudo cp -rf /data/letsencrypt/archive/${domain} /data/ssl
 }
 
 function main() {
