@@ -1,0 +1,61 @@
+version: '3.9'
+
+networks:
+  net:
+    name: net
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.9.8.0/24
+
+services:
+  geoipupdate:
+    image: maxmindinc/geoipupdate:v4.8
+    container_name: geoipupdate
+    restart: unless-stopped
+    env_file:
+      - geoipupdate.env
+    networks:
+      net:
+        ipv4_address: 10.9.8.10
+    volumes:
+      - /data/geoip:/usr/share/GeoIP
+
+  nginx:
+    depends_on:
+      - gitea
+    image: hsuan.cloud/hsuan/openresty:1.19.9.1
+    container_name: nginx
+    restart: always
+    networks:
+      net:
+        ipv4_address: 10.9.8.11
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d
+      - /data/geoip:/usr/local/openresty/nginx/geoip
+      - /data/ssl:/etc/nginx/ssl
+      - /data/html:/usr/local/openresty/nginx/html
+
+  gitea:
+    image: gitea/gitea:1.15.5
+    container_name: gitea
+    environment:
+      - USER_UID=1003
+      - USER_GID=1003
+    restart: always
+    networks:
+      net:
+        ipv4_address: 10.9.8.12
+    volumes:
+      - /data/gitea:/data
+      - /home/git/.ssh/:/data/git/.ssh
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "127.0.0.1:2222:22"
