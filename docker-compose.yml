@@ -12,35 +12,56 @@ networks:
         - subnet: 10.9.8.0/24
 
 services:
-  geoipupdate:
-    image: maxmindinc/geoipupdate:v4.8
-    container_name: geoipupdate
-    restart: unless-stopped
-    env_file:
-      - geoipupdate.env
-    networks:
-      net:
-        ipv4_address: 10.9.8.10
-    volumes:
-      - /data/geoip:/usr/share/GeoIP
+  # geoipupdate:
+  #   image: maxmindinc/geoipupdate:v4.8
+  #   container_name: geoipupdate
+  #   restart: unless-stopped
+  #   env_file:
+  #     - geoipupdate.env
+  #   networks:
+  #     net:
+  #       ipv4_address: 10.9.8.10
+  #   volumes:
+  #     - /data/geoip:/usr/share/GeoIP
 
-  nginx:
-    depends_on:
-      - gitea
-    image: hsuan.cloud/hsuan/openresty:1.19.9.1
-    container_name: nginx
+  # nginx:
+  #   depends_on:
+  #     - gitea
+  #   image: hsuan.cloud/hsuan/openresty:1.19.9.1
+  #   container_name: nginx
+  #   restart: always
+  #   networks:
+  #     net:
+  #       ipv4_address: 10.9.8.11
+  #   ports:
+  #     - 80:80
+  #     - 443:443
+  #   volumes:
+  #     - ./conf.d:/etc/nginx/conf.d
+  #     - /data/geoip:/usr/local/openresty/nginx/geoip
+  #     - /data/ssl:/etc/nginx/ssl
+  #     - /data/html:/usr/local/openresty/nginx/html
+
+  reverse-proxy:
+    # The official v2 Traefik docker image
+    image: traefik:v2.7
+    # Enables the web UI and tells Traefik to listen to docker
+    command: --api.insecure=true --providers.docker
     restart: always
     networks:
       net:
-        ipv4_address: 10.9.8.11
     ports:
-      - 80:80
-      - 443:443
+      # The HTTP port
+      - "80:80"
+      # The HTTPS port
+      - "443:443"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
     volumes:
-      - ./conf.d:/etc/nginx/conf.d
-      - /data/geoip:/usr/local/openresty/nginx/geoip
-      - /data/ssl:/etc/nginx/ssl
-      - /data/html:/usr/local/openresty/nginx/html
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./conf/traefik.yml:/etc/traefik/traefik.yml
+      - ./conf/acme.json:/acme.json
 
   gitea:
     image: gitea/gitea:1.15.5
@@ -51,7 +72,12 @@ services:
     restart: always
     networks:
       net:
-        ipv4_address: 10.9.8.12
+        # ipv4_address: 10.9.8.12
+    labels:
+      - traefik.http.routers.gitea.rule=Host(`git.hsuan.kim`)
+      - traefik.http.services.gitea.loadbalancer.server.port=3000
+      - traefik.http.routers.gitea.tls=true
+      - traefik.http.routers.gitea.tls.certresolver=myresolver
     volumes:
       - /data/gitea:/data
       - /home/git/.ssh/:/data/git/.ssh
@@ -59,3 +85,4 @@ services:
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "127.0.0.1:2222:22"
+
